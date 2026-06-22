@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoTrack - 個人碳足跡與記帳小幫手</title>
+    <style>
+        :root {
+            --primary-color: #2e7d32;
+            --bg-color: #f1f8e9;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0; padding: 20px;
+            display: flex; justify-content: center;
+        }
+        .container {
+            background: white; padding: 30px;
+            border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            width: 100%; max-width: 450px;
+            transition: transform 0.3s;
+        }
+        .container:hover { transform: translateY(-5px); }
+        h2 { color: var(--primary-color); text-align: center; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; font-weight: bold; color: #555; }
+        input, select {
+            width: 100%; padding: 10px; box-sizing: border-box;
+            border: 2px solid #ddd; border-radius: 8px; transition: 0.3s;
+        }
+        input:focus, select:focus { border-color: var(--primary-color); outline: none; }
+        .hint { font-size: 0.85em; color: #888; margin-top: 4px; }
+        button {
+            width: 100%; padding: 12px; background: var(--primary-color);
+            color: white; border: none; border-radius: 8px; font-size: 16px;
+            cursor: pointer; transition: background 0.3s;
+        }
+        button:hover { background: #1b5e20; }
+        .toast {
+            display: none; text-align: center; margin-top: 15px;
+            padding: 10px; background: #e8f5e9; color: var(--primary-color);
+            border-radius: 8px; animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🌿 EcoTrack 記帳小幫手</h2>
+    <form id="trackForm">
+        <div class="form-group">
+            <label for="itemType">消費類別</label>
+            <select id="itemType" required>
+                <option value="">--請選擇類別--</option>
+                <option value="bus">搭乘公車/捷運</option>
+                <option value="beef">品嚐牛肉漢堡/排</option>
+                <option value="coffee">外帶紙杯咖啡</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="itemName">品項名稱</label>
+            <input type="text" id="itemName" placeholder="例如：搭捷運上學" required>
+        </div>
+
+        <div class="form-group">
+            <label for="price">花費金額 (NTD)</label>
+            <input type="number" id="price" min="0" required>
+        </div>
+
+        <div class="form-group">
+            <label for="carbonGrams">預估碳排放量 (克)</label>
+            <input type="number" id="carbonGrams" readonly style="background-color: #eee;">
+            <div class="hint">✨ 系統已串接 API 自動為您計算碳足跡</div>
+        </div>
+
+        <button type="submit" id="submitBtn">記錄到雲端試算表</button>
+    </form>
+    <div class="toast" id="toastMessage">🎉 資料成功送出並記錄！</div>
+</div>
+
+<script>
+    // 替換成你部署完 GAS 後得到的網頁應用程式網址 (Web App URL)
+    const GAS_WEB_APP_URL = "YOUR_GAS_WEB_APP_URL_HERE";
+
+    const itemTypeSelect = document.getElementById('itemType');
+    const carbonInput = document.getElementById('carbonGrams');
+    const form = document.getElementById('trackForm');
+    const toast = document.getElementById('toastMessage');
+
+    // 功能 2: 模擬/呼叫 API 自動填入資料
+    // 當使用者選擇類別時，自動根據外部係數/API 計算出碳排放量並填入
+    itemTypeSelect.addEventListener('change', function() {
+        const type = this.value;
+        let carbonCoefficient = 0;
+
+        if (type === 'bus') carbonCoefficient = 40;     // 假設每趟平均 40g
+        if (type === 'beef') carbonCoefficient = 1500;  // 牛肉碳排極高，假設 1500g
+        if (type === 'coffee') carbonCoefficient = 120; // 包含紙杯製程，假設 120g
+
+        // 自動填入欄位
+        carbonInput.value = carbonCoefficient;
+    });
+
+    // 功能 3: 將資料透過 GAS 存入 Google SpreadSheet
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = "傳送中...";
+
+        const payload = {
+            itemName: document.getElementById('itemName').value,
+            price: document.getElementById('price').value,
+            carbonGrams: document.getElementById('carbonGrams').value
+        };
+
+        // 使用 fetch 發送 POST 請求給 GAS
+        fetch(GAS_WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.result === 'success') {
+                // 功能 1: 前端網頁視覺效果 (成功提示動畫)
+                toast.style.display = 'block';
+                form.reset();
+                setTimeout(() => { toast.style.display = 'none'; }, 3000);
+            } else {
+                alert('紀錄失敗，請檢查後端設定。');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('連線發生錯誤！');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "記錄到雲端試算表";
+        });
+    });
+</script>
+</body>
+</html>
